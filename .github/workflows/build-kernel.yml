@@ -23,8 +23,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Build Dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
+          sudo apt-get update -y
           sudo apt-get install -y --no-install-recommends \
             bc \
             bison \
@@ -40,11 +42,20 @@ jobs:
             libncurses5-dev \
             libelf-dev \
             lz4 \
-            cpio \
-            gcc-aarch64-linux-gnu \
-            gcc-arm-linux-gnueabi
+            cpio
+
+      - name: Cache Toolchains
+        id: cache-toolchains
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/toolchains/clang
+            ~/toolchains/gcc64
+            ~/toolchains/gcc32
+          key: toolchains-clang-r416183b-gcc49
 
       - name: Setup Toolchains (Google Clang & AOSP GCC)
+        if: steps.cache-toolchains.outputs.cache-hit != 'true'
         run: |
           mkdir -p "${HOME}/toolchains/clang"
           mkdir -p "${HOME}/toolchains/gcc64"
