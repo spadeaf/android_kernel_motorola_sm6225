@@ -1,0 +1,129 @@
+name: Build KernelSU Kernel for Moto G30 (caprip)
+
+on:
+  push:
+    branches:
+      - lineage-23.2
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Kernel (caprip)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bc \
+            bison \
+            build-essential \
+            curl \
+            flex \
+            git \
+            libssl-dev \
+            zip \
+            unzip \
+            python-is-python3 \
+            libncurses5 \
+            libncurses5-dev \
+            libelf-dev \
+            lz4 \
+            cpio
+
+      - name: Setup Toolchains (Google Clang & AOSP GCC)
+        run: |
+          mkdir -p "${HOME}/toolchains/clang"
+          mkdir -p "${HOME}/toolchains/gcc64"
+          mkdir -p "${HOME}/toolchains/gcc32"
+
+          echo "Downloading Google Clang clang-r416183b..."
+          curl -LSs "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android12-release/clang-r416183b.tar.gz" | tar -xz -C "${HOME}/toolchains/clang"
+
+          echo "Downloading AOSP GCC 4.9 aarch64..."
+          curl -LSs "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/+archive/refs/heads/android12-release.tar.gz" | tar -xz -C "${HOME}/toolchains/gcc64"
+
+          echo "Downloading AOSP GCC 4.9 arm32..."
+          curl -LSs "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/+archive/refs/heads/android12-release.tar.gz" | tar -xz -C "${HOME}/toolchains/gcc32"
+
+          echo "Toolchains installed successfully."
+
+      - name: Verify Toolchain Binaries
+        run: |
+          export PATH="${HOME}/toolchains/clang/bin:${HOME}/toolchains/gcc64/bin:${HOME}/toolchains/gcc32/bin:${PATH}"
+          clang --version
+          aarch64-linux-android-gcc --version
+          arm-linux-androideabi-gcc --version
+
+      - name: Build Kernel
+        run: |
+          export PATH="${HOME}/toolchains/clang/bin:${HOME}/toolchains/gcc64/bin:${HOME}/toolchains/gcc32/bin:${PATH}"
+          
+          mkdir -p out
+          
+          echo "=== Merging defconfigs for caprip ==="
+          ARCH=arm64 scripts/kconfig/merge_config.sh -m -O out \
+            arch/arm64/configs/vendor/bengal-perf_defconfig \
+            arch/arm64/configs/vendor/ext_config/moto-bengal.config \
+            arch/arm64/configs/vendor/ext_config/caprip-default.config
+          
+          echo "=== Running olddefconfig ==="
+          make O=out ARCH=arm64 \
+            CC=clang \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=aarch64-linux-android- \
+            CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+            olddefconfig
+          
+          echo "=== Verifying KSU config symbols ==="
+          grep "CONFIG_KSU=" out/.config || (echo "ERROR: CONFIG_KSU not found in .config" && exit 1)
+          grep "CONFIG_KSU_MANUAL_HOOK=" out/.config || (echo "ERROR: CONFIG_KSU_MANUAL_HOOK not found in .config" && exit 1)
+          
+          echo "=== Building Kernel Image ==="
+          make -j$(nproc --all) O=out ARCH=arm64 \
+            CC=clang \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE=aarch64-linux-android- \
+            CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+            Image dtbs
+          
+          if [ ! -s out/arch/arm64/boot/Image ]; then
+            echo "ERROR: Kernel Image was not generated or is empty!"
+            exit 1
+          fi
+          
+          echo "Kernel Image built successfully: $(ls -lh out/arch/arm64/boot/Image)"
+
+      - name: Package AnyKernel3 Zip
+        id: package
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          ZIP_NAME="KernelSU-Next-caprip-LineageOS-23.2-${SHORT_SHA}.zip"
+          chmod +x ./scripts/package_anykernel3.sh
+          ./scripts/package_anykernel3.sh out "${ZIP_NAME}"
+          echo "zip_name=${ZIP_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.zip_name }}
+          path: ${{ steps.package.outputs.zip_name }}
+          if-no-files-found: error
+
+      - name: Create GitHub Release (Tags Only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.package.outputs.zip_name }}
+          generate_release_notes: true
