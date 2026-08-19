@@ -22,28 +22,6 @@ jobs:
       - name: Checkout Source
         uses: actions/checkout@v4
 
-      - name: Install Build Dependencies
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y --no-install-recommends \
-            bc \
-            bison \
-            build-essential \
-            curl \
-            flex \
-            git \
-            libssl-dev \
-            zip \
-            unzip \
-            python-is-python3 \
-            libncurses5 \
-            libncurses5-dev \
-            libelf-dev \
-            lz4 \
-            cpio
-
       - name: Cache Toolchains
         id: cache-toolchains
         uses: actions/cache@v4
