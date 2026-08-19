@@ -40,7 +40,9 @@ jobs:
             libncurses5-dev \
             libelf-dev \
             lz4 \
-            cpio
+            cpio \
+            gcc-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabi
 
       - name: Setup Toolchains (Google Clang & AOSP GCC)
         run: |
@@ -63,8 +65,8 @@ jobs:
         run: |
           export PATH="${HOME}/toolchains/clang/bin:${HOME}/toolchains/gcc64/bin:${HOME}/toolchains/gcc32/bin:${PATH}"
           clang --version
-          aarch64-linux-android-gcc --version
-          arm-linux-androideabi-gcc --version
+          aarch64-linux-android-as --version
+          arm-linux-androideabi-as --version
 
       - name: Build Kernel
         run: |
