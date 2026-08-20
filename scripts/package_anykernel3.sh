@@ -81,6 +81,7 @@ if [ -d "${OUT_DIR}/modules/lib/modules" ]; then
     echo "=== Packaging compiled kernel modules ==="
     mkdir -p "${AK3_DIR}/modules/vendor/lib/modules"
     find "${OUT_DIR}/modules/lib/modules" -name "*.ko" -exec cp {} "${AK3_DIR}/modules/vendor/lib/modules/" \;
+    find "${AK3_DIR}/modules/vendor/lib/modules" -name "*.ko" -exec llvm-strip --strip-unneeded {} + 2>/dev/null || true
     sed -i 's/do.modules=0/do.modules=1/' "${AK3_DIR}/anykernel.sh"
 fi
 
