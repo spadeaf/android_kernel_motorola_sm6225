@@ -18,7 +18,7 @@ git clone --depth=1 https://github.com/osm0sis/AnyKernel3 "${AK3_DIR}"
 # Remove repository metadata and documentation
 rm -rf "${AK3_DIR}/.git" "${AK3_DIR}/.github" "${AK3_DIR}/README.md"
 
-# Customize anykernel.sh for caprip
+# Customize anykernel.sh for caprip (Moto G30)
 cat << 'EOF' > "${AK3_DIR}/anykernel.sh"
 ### AnyKernel3 Ramdisk Mod Script
 # osm0sis @ xda-developers
@@ -33,28 +33,32 @@ do.systemless=1
 do.cleanup=1
 do.cleanuponabort=0
 device.name1=caprip
-device.name2=capri
-device.name3=bengal
-device.name4=moto g(30)
-device.name5=moto g30
+device.name2=caprip_retail
+device.name3=lineage_caprip
+device.name4=capri
+device.name5=bengal
+device.name6=moto g(30)
+device.name7=moto g30
+device.name8=XT2129-2
+device.name9=XT2129-1
 supported.versions=11 - 16
 supported.patchlevels=
 '; } # end properties
 
-# shell variables
-block=boot;
-is_slot_device=auto;
-ramdisk_compression=auto;
-patch_vbmeta_flag=auto;
+# boot shell variables (MUST BE UPPERCASE for AnyKernel3 core)
+BLOCK=/dev/block/bootdevice/by-name/boot;
+IS_SLOT_DEVICE=1;
+RAMDISK_COMPRESSION=auto;
+PATCH_VBMETA_FLAG=auto;
 
 ## AnyKernel methods (DO NOT CHANGE)
 # import patching functions/variables - see for reference
 . tools/ak3-core.sh;
 
 ## AnyKernel install
-split_boot;
+dump_boot;
 
-flash_boot;
+write_boot;
 ## end install
 EOF
 
