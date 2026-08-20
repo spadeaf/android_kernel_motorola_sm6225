@@ -26,20 +26,20 @@ jobs:
         id: cache-toolchains
         uses: actions/cache@v4
         with:
-          path: ~/toolchains/clang
+          path: /home/runner/toolchains/clang
           key: toolchains-clang-r530567-v1
 
       - name: Setup Android 16 Clang Toolchain (clang-r530567)
         if: steps.cache-toolchains.outputs.cache-hit != 'true'
         run: |
-          mkdir -p "${HOME}/toolchains/clang"
+          mkdir -p /home/runner/toolchains/clang
           echo "Downloading Google Clang clang-r530567 (Android 16)..."
-          curl -LSs "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android16-release/clang-r530567.tar.gz" | tar -xz -C "${HOME}/toolchains/clang"
+          curl -LSs "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android16-release/clang-r530567.tar.gz" | tar -xz -C /home/runner/toolchains/clang
           echo "Toolchain installed successfully."
 
       - name: Verify Toolchain Binaries
         run: |
-          export PATH="${HOME}/toolchains/clang/bin:${PATH}"
+          export PATH="/home/runner/toolchains/clang/bin:${PATH}"
           clang --version
           ld.lld --version
           llvm-as --version
@@ -47,7 +47,7 @@ jobs:
 
       - name: Build Kernel
         run: |
-          export PATH="${HOME}/toolchains/clang/bin:${PATH}"
+          export PATH="/home/runner/toolchains/clang/bin:${PATH}"
           
           mkdir -p out
           
@@ -83,26 +83,21 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.package.outputs.zip_name }}
-          path: AnyKernel3/
+          name: AnyKernel3-caprip-LineageOS-23.2
+          path: ./AnyKernel3/
           if-no-files-found: error
 
       - name: Create or Update GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="lineage-23.2-ksu-latest"
-          ZIP_FILE="${{ steps.package.outputs.zip_name }}"
-          
-          # Delete existing release/tag if exists to refresh with latest build
-          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
-          
-          gh release create "$TAG" "$ZIP_FILE" \
-            --title "KernelSU-Next for Moto G30 (caprip) - LineageOS 23.2" \
-            --notes "Flashable AnyKernel3 zip with KernelSU-Next for Motorola Moto G30 (caprip) on LineageOS 23.2 (Android 16).
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: lineage-23.2-ksu-latest
+          files: ${{ steps.package.outputs.zip_name }}
+          name: "KernelSU-Next for Moto G30 (caprip) - LineageOS 23.2"
+          body: |
+            Flashable AnyKernel3 zip with KernelSU-Next for Motorola Moto G30 (caprip) on LineageOS 23.2 (Android 16).
 
-### Flashing Instructions
-1. Download \`${ZIP_FILE}\` from the release assets below.
-2. Reboot into Custom Recovery (TWRP / OrangeFox / Lineage Recovery).
-3. Flash/sideload \`${ZIP_FILE}\`.
-4. Reboot into system and install the KernelSU-Next Manager app."
+            ### Flashing Instructions
+            1. Download `${{ steps.package.outputs.zip_name }}` from the release assets below.
+            2. Reboot into Custom Recovery (TWRP / OrangeFox / Lineage Recovery).
+            3. Flash/sideload the zip file.
+            4. Reboot into system and install the KernelSU-Next Manager app.
