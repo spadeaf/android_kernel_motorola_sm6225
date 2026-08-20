@@ -76,6 +76,14 @@ if [ -f "${OUT_DIR}/arch/arm64/boot/dtbo.img" ]; then
     cp "${OUT_DIR}/arch/arm64/boot/dtbo.img" "${AK3_DIR}/dtbo.img"
 fi
 
+# Copy kernel modules if present
+if [ -d "${OUT_DIR}/modules/lib/modules" ]; then
+    echo "=== Packaging compiled kernel modules ==="
+    mkdir -p "${AK3_DIR}/modules/vendor/lib/modules"
+    find "${OUT_DIR}/modules/lib/modules" -name "*.ko" -exec cp {} "${AK3_DIR}/modules/vendor/lib/modules/" \;
+    sed -i 's/do.modules=0/do.modules=1/' "${AK3_DIR}/anykernel.sh"
+fi
+
 # Set proper executable permissions
 chmod 755 "${AK3_DIR}/anykernel.sh"
 chmod 755 "${AK3_DIR}/META-INF/com/google/android/update-binary"

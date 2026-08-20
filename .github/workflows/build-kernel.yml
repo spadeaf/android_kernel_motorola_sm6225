@@ -61,8 +61,9 @@ jobs:
           grep "CONFIG_KSU=" out/.config || (echo "ERROR: CONFIG_KSU not found in .config" && exit 1)
           grep "CONFIG_KSU_MANUAL_HOOK=" out/.config || (echo "ERROR: CONFIG_KSU_MANUAL_HOOK not found in .config" && exit 1)
           
-          echo "=== Building Kernel Image and DTBs with Android 16 LLVM ==="
-          make -j$(nproc --all) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 Image dtbs
+          echo "=== Building Kernel Image, Modules, and DTBs with Android 16 LLVM ==="
+          make -j$(nproc --all) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 Image modules dtbs
+          make O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 INSTALL_MOD_PATH=modules modules_install
           
           if [ ! -s out/arch/arm64/boot/Image ]; then
             echo "ERROR: Kernel Image was not generated or is empty!"
