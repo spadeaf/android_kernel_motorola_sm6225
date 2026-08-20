@@ -15,6 +15,9 @@ AK3_DIR="AnyKernel3"
 rm -rf "${AK3_DIR}"
 git clone --depth=1 https://github.com/osm0sis/AnyKernel3 "${AK3_DIR}"
 
+# Remove repository metadata and documentation
+rm -rf "${AK3_DIR}/.git" "${AK3_DIR}/.github" "${AK3_DIR}/README.md"
+
 # Customize anykernel.sh for caprip
 cat << 'EOF' > "${AK3_DIR}/anykernel.sh"
 ### AnyKernel3 Ramdisk Mod Script
@@ -69,9 +72,44 @@ if [ -f "${OUT_DIR}/arch/arm64/boot/dtbo.img" ]; then
     cp "${OUT_DIR}/arch/arm64/boot/dtbo.img" "${AK3_DIR}/dtbo.img"
 fi
 
-cd "${AK3_DIR}"
-zip -r9 "../${ZIP_NAME}" * -x .git README.md *placeholder
-cd ..
+# Set proper executable permissions
+chmod 755 "${AK3_DIR}/anykernel.sh"
+chmod 755 "${AK3_DIR}/META-INF/com/google/android/update-binary"
+chmod 755 "${AK3_DIR}"/tools/*
 
-echo "=== Successfully created ${ZIP_NAME} ==="
+# Remove any old zip
+rm -f "${ZIP_NAME}"
+
+# Package with Python zipfile to ensure proper POSIX permissions and deflate compression
+python3 -c "
+import os, zipfile, stat
+
+src_dir = '${AK3_DIR}'
+output_zip = '${ZIP_NAME}'
+
+with zipfile.ZipFile(output_zip, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+    for root, dirs, files in os.walk(src_dir):
+        rel_root = os.path.relpath(root, src_dir)
+        if rel_root != '.':
+            zinfo = zipfile.ZipInfo(rel_root + '/')
+            zinfo.external_attr = (stat.S_IFDIR | 0o755) << 16
+            zf.writestr(zinfo, '')
+
+        for f in files:
+            if f.endswith('placeholder'):
+                continue
+            file_path = os.path.join(root, f)
+            rel_file = os.path.relpath(file_path, src_dir)
+            st = os.stat(file_path)
+            mode = st.st_mode & 0o777
+            zinfo = zipfile.ZipInfo(rel_file)
+            zinfo.external_attr = (stat.S_IFREG | mode) << 16
+            with open(file_path, 'rb') as fp:
+                zf.writestr(zinfo, fp.read(), compress_type=zipfile.ZIP_DEFLATED)
+"
+
+echo "=== Verifying flashable zip contents ==="
+unzip -l "${ZIP_NAME}" | grep "META-INF/com/google/android/update-binary" || (echo "ERROR: update-binary missing from root of zip!" && exit 1)
+
+echo "=== Successfully created and verified ${ZIP_NAME} ==="
 ls -lh "${ZIP_NAME}"
